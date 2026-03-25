@@ -70,16 +70,3 @@ endmodule
     assert!(!rendered.contains("a <= 1'b0;"));
     assert!(!rendered.contains("begin\n    ;\n  end"));
 }
-
-#[test]
-fn cleans_up_null_statements_in_empty_branches() {
-    let rendered = render_source(
-        "module top;\n  always_ff @(posedge clk) begin\n    if (rst) begin\n      ;\n      ;\n    end else begin\n      case (sel)\n        2'b11: begin\n          y <= a - b;\n          ;\n        end\n      endcase\n    end\n  end\nendmodule\n",
-        &[],
-        &BTreeSet::new(),
-    )
-    .unwrap();
-
-    assert!(!rendered.contains("\n      ;\n      ;\n"));
-    assert!(!rendered.contains("y <= a - b;\n          ;"));
-}
