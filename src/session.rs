@@ -26,6 +26,10 @@ pub struct ReductionSession {
     input: SessionInput,
     checker: Box<dyn Checker>,
     metrics: PerformanceMetrics,
+    attempt_cache: BTreeMap<Vec<usize>, bool>,
+    rendered_cache: BTreeMap<String, bool>,
+    candidate_order: Vec<usize>,
+    sibling_groups: Vec<Vec<usize>>,
     output_dir: Option<PathBuf>,
     input_file_name: Option<String>,
     attempt_index: usize,
@@ -37,10 +41,16 @@ impl ReductionSession {
     where
         C: Checker + 'static,
     {
+        let candidate_order = build_candidate_order(&input.candidates);
+        let sibling_groups = build_sibling_groups(&input.candidates);
         Self {
             input,
             checker: Box::new(checker),
             metrics: PerformanceMetrics::default(),
+            attempt_cache: BTreeMap::new(),
+            rendered_cache: BTreeMap::new(),
+            candidate_order,
+            sibling_groups,
             output_dir: None,
             input_file_name: None,
             attempt_index: 0,
@@ -67,40 +77,11 @@ impl ReductionSession {
     }
 
     pub fn candidate_ids(&self) -> impl Iterator<Item = usize> + '_ {
-        let mut ids: Vec<usize> = self
-            .input
-            .candidates
-            .iter()
-            .map(|candidate| candidate.id)
-            .collect();
-        ids.sort_by_key(|id| {
-            let candidate = &self.input.candidates[*id];
-            (usize::MAX - candidate.depth, candidate.start)
-        });
-        ids.into_iter()
+        self.candidate_order.iter().copied()
     }
 
     pub fn grouped_siblings(&self) -> Vec<Vec<usize>> {
-        let mut groups = BTreeMap::<Option<usize>, Vec<usize>>::new();
-        for candidate in &self.input.candidates {
-            groups
-                .entry(candidate.parent_id)
-                .or_default()
-                .push(candidate.id);
-        }
-        let mut groups: Vec<Vec<usize>> = groups
-            .into_values()
-            .filter(|group| group.len() > 1)
-            .collect();
-        groups.sort_by_key(|group| {
-            let depth = group
-                .iter()
-                .map(|id| self.input.candidates[*id].depth)
-                .max()
-                .unwrap_or(0);
-            usize::MAX - depth
-        });
-        groups
+        self.sibling_groups.clone()
     }
 
     pub fn attempt_disable(
@@ -111,10 +92,34 @@ impl ReductionSession {
         let start = Instant::now();
         let mut trial_disabled = disabled.clone();
         trial_disabled.extend(ids.iter().copied());
+        let cache_key: Vec<usize> = trial_disabled.iter().copied().collect();
+
+        if let Some(accepted) = self.attempt_cache.get(&cache_key).copied() {
+            self.metrics.record_attempt(AttemptMetrics {
+                accepted,
+                duration: start.elapsed(),
+            });
+            if accepted {
+                disabled.extend(ids.iter().copied());
+            }
+            return Ok(accepted);
+        }
 
         let render_start = Instant::now();
         let rendered = render_source(&self.input.source, &self.input.candidates, &trial_disabled)?;
         self.metrics.render_elapsed += render_start.elapsed();
+
+        if let Some(accepted) = self.rendered_cache.get(&rendered).copied() {
+            self.attempt_cache.insert(cache_key, accepted);
+            self.metrics.record_attempt(AttemptMetrics {
+                accepted,
+                duration: start.elapsed(),
+            });
+            if accepted {
+                disabled.extend(ids.iter().copied());
+            }
+            return Ok(accepted);
+        }
 
         let rendered_path = self.persist_attempt(&rendered)?;
 
@@ -123,6 +128,8 @@ impl ReductionSession {
             let parse_result = ParsedSource::parse_str(&rendered, validation_path);
             self.metrics.parse_elapsed += parse_start.elapsed();
             if parse_result.is_err() {
+                self.attempt_cache.insert(cache_key, false);
+                self.rendered_cache.insert(rendered, false);
                 self.metrics.record_attempt(AttemptMetrics {
                     accepted: false,
                     duration: start.elapsed(),
@@ -140,6 +147,8 @@ impl ReductionSession {
         self.metrics.check_elapsed += check_start.elapsed();
 
         let accepted = matches!(outcome, CheckOutcome::Kept);
+        self.attempt_cache.insert(cache_key, accepted);
+        self.rendered_cache.insert(rendered, accepted);
         self.metrics.record_attempt(AttemptMetrics {
             accepted,
             duration: start.elapsed(),
@@ -188,4 +197,36 @@ impl ReductionSession {
             )
         })
     }
+}
+
+fn build_candidate_order(candidates: &[ReductionCandidate]) -> Vec<usize> {
+    let mut ids: Vec<usize> = candidates.iter().map(|candidate| candidate.id).collect();
+    ids.sort_by_key(|id| {
+        let candidate = &candidates[*id];
+        (usize::MAX - candidate.depth, candidate.start)
+    });
+    ids
+}
+
+fn build_sibling_groups(candidates: &[ReductionCandidate]) -> Vec<Vec<usize>> {
+    let mut groups = BTreeMap::<Option<usize>, Vec<usize>>::new();
+    for candidate in candidates {
+        groups
+            .entry(candidate.parent_id)
+            .or_default()
+            .push(candidate.id);
+    }
+    let mut groups: Vec<Vec<usize>> = groups
+        .into_values()
+        .filter(|group| group.len() > 1)
+        .collect();
+    groups.sort_by_key(|group| {
+        let depth = group
+            .iter()
+            .map(|id| candidates[*id].depth)
+            .max()
+            .unwrap_or(0);
+        usize::MAX - depth
+    });
+    groups
 }
