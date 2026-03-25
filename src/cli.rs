@@ -6,6 +6,8 @@ use clap::{Parser, ValueEnum};
 pub enum AlgorithmKind {
     Naive,
     Hdd,
+    Ddmin,
+    Hddmin,
 }
 
 #[derive(Debug, Clone, Parser)]

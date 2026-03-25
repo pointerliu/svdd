@@ -35,3 +35,35 @@ fn parses_cli_with_hdd_algorithm() {
     assert_eq!(cli.algorithm, AlgorithmKind::Hdd);
     assert_eq!(cli.output_dir.as_os_str(), "out");
 }
+
+#[test]
+fn parses_cli_with_ddmin_algorithm() {
+    let cli = Cli::parse_from([
+        "svdd",
+        "input.sv",
+        "--check-script",
+        "./check.sh",
+        "--algorithm",
+        "ddmin",
+        "--output-dir",
+        "out",
+    ]);
+
+    assert_eq!(cli.algorithm, AlgorithmKind::Ddmin);
+}
+
+#[test]
+fn parses_cli_with_hddmin_algorithm() {
+    let cli = Cli::parse_from([
+        "svdd",
+        "input.sv",
+        "--check-script",
+        "./check.sh",
+        "--algorithm",
+        "hddmin",
+        "--output-dir",
+        "out",
+    ]);
+
+    assert_eq!(cli.algorithm, AlgorithmKind::Hddmin);
+}

@@ -2,7 +2,10 @@ use anyhow::Result;
 use clap::Parser;
 use std::time::Instant;
 
-use svdd::algorithms::{hdd::HddReducer, naive::NaiveReducer, ReductionAlgorithm};
+use svdd::algorithms::{
+    ddmin::DdminReducer, hdd::HddReducer, hddmin::HddminReducer, naive::NaiveReducer,
+    ReductionAlgorithm,
+};
 use svdd::check::ScriptChecker;
 use svdd::cli::{AlgorithmKind, Cli};
 use svdd::parser::ParsedSource;
@@ -29,6 +32,8 @@ fn main() -> Result<()> {
     let mut summary = match cli.algorithm {
         AlgorithmKind::Naive => NaiveReducer.run(session)?,
         AlgorithmKind::Hdd => HddReducer.run(session)?,
+        AlgorithmKind::Ddmin => DdminReducer.run(session)?,
+        AlgorithmKind::Hddmin => HddminReducer.run(session)?,
     };
 
     let reduced = render_source(
@@ -52,6 +57,8 @@ fn main() -> Result<()> {
         match cli.algorithm {
             AlgorithmKind::Naive => "naive",
             AlgorithmKind::Hdd => "hdd",
+            AlgorithmKind::Ddmin => "ddmin",
+            AlgorithmKind::Hddmin => "hddmin",
         }
     );
     println!("attempts: {}", summary.metrics.attempt_count);

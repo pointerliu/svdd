@@ -84,6 +84,31 @@ impl ReductionSession {
         self.sibling_groups.clone()
     }
 
+    pub fn depths(&self) -> Vec<usize> {
+        let mut depths: Vec<usize> = self
+            .input
+            .candidates
+            .iter()
+            .map(|candidate| candidate.depth)
+            .collect();
+        depths.sort_unstable();
+        depths.dedup();
+        depths
+    }
+
+    pub fn level_candidate_ids(&self, depth: usize, disabled: &BTreeSet<usize>) -> Vec<usize> {
+        self.candidate_order
+            .iter()
+            .copied()
+            .filter(|id| {
+                let candidate = &self.input.candidates[*id];
+                candidate.depth == depth
+                    && !disabled.contains(id)
+                    && !self.has_disabled_ancestor(*id, disabled)
+            })
+            .collect()
+    }
+
     pub fn attempt_disable(
         &mut self,
         disabled: &mut BTreeSet<usize>,
@@ -196,6 +221,18 @@ impl ReductionSession {
                     .unwrap_or_else(|| "reduced.sv".to_string()),
             )
         })
+    }
+
+    fn has_disabled_ancestor(&self, mut id: usize, disabled: &BTreeSet<usize>) -> bool {
+        let mut parent_id = self.input.candidates[id].parent_id;
+        while let Some(parent) = parent_id {
+            if disabled.contains(&parent) {
+                return true;
+            }
+            id = parent;
+            parent_id = self.input.candidates[id].parent_id;
+        }
+        false
     }
 }
 

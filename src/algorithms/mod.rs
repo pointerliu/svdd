@@ -1,4 +1,6 @@
+pub mod ddmin;
 pub mod hdd;
+pub mod hddmin;
 pub mod naive;
 
 use anyhow::Result;
