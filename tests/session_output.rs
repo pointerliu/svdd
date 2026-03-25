@@ -20,5 +20,5 @@ fn session_persists_attempt_files_in_output_dir() {
     let accepted = session.attempt_disable(&mut disabled, &[0]).unwrap();
 
     assert!(accepted);
-    assert!(dir.path().join("attempts/attempt-000001.sv").exists());
+    assert!(dir.path().join("attempts/attempt-000001/input.sv").exists());
 }

@@ -79,7 +79,7 @@ fn extract_candidates(
                 let parent_id = stack.last().copied();
                 let mut candidate = ReductionCandidate::with_parent(
                     id,
-                    CandidateKind::Node,
+                    candidate_kind(node.clone()),
                     usize::MAX,
                     0,
                     parent_id,
@@ -114,7 +114,29 @@ fn is_removable_node(node: RefNode<'_>) -> bool {
             | RefNode::NonblockingAssignment(_)
             | RefNode::CaseStatement(_)
             | RefNode::ConditionalStatement(_)
+            | RefNode::AnsiPortDeclarationNet(_)
+            | RefNode::AnsiPortDeclarationVariable(_)
+            | RefNode::AnsiPortDeclarationParen(_)
+            | RefNode::PortDeclarationInout(_)
+            | RefNode::PortDeclarationInput(_)
+            | RefNode::PortDeclarationOutput(_)
+            | RefNode::PortDeclarationRef(_)
+            | RefNode::PortDeclarationInterface(_)
     )
+}
+
+fn candidate_kind(node: RefNode<'_>) -> CandidateKind {
+    match node {
+        RefNode::AnsiPortDeclarationNet(_)
+        | RefNode::AnsiPortDeclarationVariable(_)
+        | RefNode::AnsiPortDeclarationParen(_)
+        | RefNode::PortDeclarationInout(_)
+        | RefNode::PortDeclarationInput(_)
+        | RefNode::PortDeclarationOutput(_)
+        | RefNode::PortDeclarationRef(_)
+        | RefNode::PortDeclarationInterface(_) => CandidateKind::Port,
+        _ => CandidateKind::Node,
+    }
 }
 
 fn remap_candidates(
@@ -125,7 +147,6 @@ fn remap_candidates(
         .iter()
         .filter(|candidate| {
             candidate.is_span_initialized()
-                && candidate.depth > 0
                 && !(candidate.start == 0 && candidate.end == source_len)
         })
         .map(|candidate| candidate.id)

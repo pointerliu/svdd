@@ -20,8 +20,17 @@ impl ReductionAlgorithm for NaiveReducer {
         let algo_start = Instant::now();
         let mut disabled = BTreeSet::new();
         let candidate_ids: Vec<usize> = session.candidate_ids().collect();
-        for id in candidate_ids {
-            session.attempt_disable(&mut disabled, &[id])?;
+        loop {
+            let mut changed = false;
+            for id in &candidate_ids {
+                if disabled.contains(id) {
+                    continue;
+                }
+                changed |= session.attempt_disable(&mut disabled, &[*id])?;
+            }
+            if !changed {
+                break;
+            }
         }
         session.metrics_mut().algorithm_elapsed += algo_start.elapsed();
         Ok(session.finalize(disabled, total_start.elapsed()))

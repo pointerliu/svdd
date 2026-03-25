@@ -67,7 +67,17 @@ impl ReductionSession {
     }
 
     pub fn candidate_ids(&self) -> impl Iterator<Item = usize> + '_ {
-        self.input.candidates.iter().map(|candidate| candidate.id)
+        let mut ids: Vec<usize> = self
+            .input
+            .candidates
+            .iter()
+            .map(|candidate| candidate.id)
+            .collect();
+        ids.sort_by_key(|id| {
+            let candidate = &self.input.candidates[*id];
+            (usize::MAX - candidate.depth, candidate.start)
+        });
+        ids.into_iter()
     }
 
     pub fn grouped_siblings(&self) -> Vec<Vec<usize>> {
@@ -78,10 +88,19 @@ impl ReductionSession {
                 .or_default()
                 .push(candidate.id);
         }
-        groups
+        let mut groups: Vec<Vec<usize>> = groups
             .into_values()
             .filter(|group| group.len() > 1)
-            .collect()
+            .collect();
+        groups.sort_by_key(|group| {
+            let depth = group
+                .iter()
+                .map(|id| self.input.candidates[*id].depth)
+                .max()
+                .unwrap_or(0);
+            usize::MAX - depth
+        });
+        groups
     }
 
     pub fn attempt_disable(
@@ -151,12 +170,11 @@ impl ReductionSession {
         };
 
         self.attempt_index += 1;
-        let attempts_dir = output_dir.join("attempts");
-        std::fs::create_dir_all(&attempts_dir)?;
-        let path = attempts_dir.join(format!(
-            "attempt-{number:06}.sv",
-            number = self.attempt_index
-        ));
+        let attempt_dir = output_dir
+            .join("attempts")
+            .join(format!("attempt-{number:06}", number = self.attempt_index));
+        std::fs::create_dir_all(&attempt_dir)?;
+        let path = attempt_dir.join(self.input_file_name.as_deref().unwrap_or("reduced.sv"));
         std::fs::write(&path, rendered)?;
         Ok(Some(path))
     }

@@ -35,3 +35,65 @@ endmodule
         !span.starts_with("module top")
     }));
 }
+
+#[test]
+fn extracts_top_level_port_and_declaration_candidates() {
+    let parsed = ParsedSource::parse_str(
+        r#"module top (
+  input wire clk,
+  output reg y,
+  output reg dummy_out
+);
+  logic a;
+  assign a = clk;
+endmodule
+"#,
+        "top.sv",
+    )
+    .unwrap();
+
+    let spans: Vec<&str> = parsed
+        .candidates
+        .iter()
+        .map(|candidate| &parsed.source[candidate.start..candidate.end])
+        .collect();
+
+    assert!(
+        spans.iter().any(|span| span.contains("dummy_out")),
+        "spans: {spans:#?}"
+    );
+    assert!(
+        spans.iter().any(|span| span.contains("logic a;")),
+        "spans: {spans:#?}"
+    );
+    assert!(
+        spans.iter().any(|span| span.contains("assign a = clk;")),
+        "spans: {spans:#?}"
+    );
+}
+
+#[test]
+fn extracts_statement_wrapper_candidates() {
+    let parsed = ParsedSource::parse_str(
+        r#"module top;
+  logic a;
+  always_ff @(posedge a) begin
+    a <= 1'b1;
+  end
+endmodule
+"#,
+        "top.sv",
+    )
+    .unwrap();
+
+    let spans: Vec<&str> = parsed
+        .candidates
+        .iter()
+        .map(|candidate| &parsed.source[candidate.start..candidate.end])
+        .collect();
+
+    assert!(
+        spans.iter().any(|span| span.contains("a <= 1'b1;")),
+        "spans: {spans:#?}"
+    );
+}

@@ -20,16 +20,24 @@ impl ReductionAlgorithm for HddReducer {
         let algo_start = Instant::now();
         let mut disabled = BTreeSet::new();
 
-        for group in session.grouped_siblings() {
-            reduce_group(&mut session, &mut disabled, &group)?;
-        }
+        loop {
+            let mut changed = false;
 
-        let remaining_ids: Vec<usize> = session.candidate_ids().collect();
-        for id in remaining_ids {
-            if disabled.contains(&id) {
-                continue;
+            for group in session.grouped_siblings() {
+                changed |= reduce_group(&mut session, &mut disabled, &group)?;
             }
-            session.attempt_disable(&mut disabled, &[id])?;
+
+            let remaining_ids: Vec<usize> = session.candidate_ids().collect();
+            for id in remaining_ids {
+                if disabled.contains(&id) {
+                    continue;
+                }
+                changed |= session.attempt_disable(&mut disabled, &[id])?;
+            }
+
+            if !changed {
+                break;
+            }
         }
 
         session.metrics_mut().algorithm_elapsed += algo_start.elapsed();
@@ -41,18 +49,20 @@ fn reduce_group(
     session: &mut ReductionSession,
     disabled: &mut BTreeSet<usize>,
     group: &[usize],
-) -> Result<()> {
+) -> Result<bool> {
     let mut active: Vec<usize> = group
         .iter()
         .copied()
         .filter(|id| !disabled.contains(id))
         .collect();
     if active.is_empty() {
-        return Ok(());
+        return Ok(false);
     }
 
+    let mut changed = false;
+
     if active.len() > 1 && session.attempt_disable(disabled, &active)? {
-        return Ok(());
+        return Ok(true);
     }
 
     let mut granularity = 2usize.min(active.len().max(1));
@@ -66,6 +76,7 @@ fn reduce_group(
                 active.retain(|id| !removed.contains(id));
                 granularity = 2usize.min(active.len().max(1));
                 accepted = true;
+                changed = true;
                 break;
             }
         }
@@ -82,10 +93,10 @@ fn reduce_group(
         if disabled.contains(&id) {
             continue;
         }
-        session.attempt_disable(disabled, &[id])?;
+        changed |= session.attempt_disable(disabled, &[id])?;
     }
 
-    Ok(())
+    Ok(changed)
 }
 
 fn partition(ids: &[usize], granularity: usize) -> Vec<Vec<usize>> {
