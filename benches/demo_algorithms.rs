@@ -2,7 +2,10 @@ use std::collections::BTreeSet;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
-use svdd::algorithms::{hdd::HddReducer, naive::NaiveReducer, ReductionAlgorithm};
+use svdd::algorithms::{
+    ddmin::DdminReducer, hdd::HddReducer, hddmin::HddminReducer, naive::NaiveReducer,
+    ReductionAlgorithm,
+};
 use svdd::check::CheckOutcome;
 use svdd::parser::ParsedSource;
 use svdd::session::{ReductionSession, SessionInput};
@@ -28,6 +31,28 @@ fn bench_demo_algorithms(c: &mut Criterion) {
                 demo_oracle,
             );
             let summary = HddReducer.run(session).unwrap();
+            black_box(summary);
+        });
+    });
+
+    c.bench_function("demo ddmin reducer", |b| {
+        b.iter(|| {
+            let session = ReductionSession::new(
+                SessionInput::new(parsed.source.clone(), parsed.candidates.clone()),
+                demo_oracle,
+            );
+            let summary = DdminReducer.run(session).unwrap();
+            black_box(summary);
+        });
+    });
+
+    c.bench_function("demo hddmin reducer", |b| {
+        b.iter(|| {
+            let session = ReductionSession::new(
+                SessionInput::new(parsed.source.clone(), parsed.candidates.clone()),
+                demo_oracle,
+            );
+            let summary = HddminReducer.run(session).unwrap();
             black_box(summary);
         });
     });
