@@ -6,6 +6,7 @@ use anyhow::{Context, Result};
 use sv_parser::{parse_sv, parse_sv_str, NodeEvent, RefNode};
 
 use crate::model::{CandidateKind, ReductionCandidate};
+use crate::profile;
 
 #[derive(Debug, Clone)]
 pub struct ParsedSource {
@@ -17,6 +18,7 @@ pub struct ParsedSource {
 
 impl ParsedSource {
     pub fn parse_file(path: impl AsRef<Path>) -> Result<Self> {
+        let _scope = profile::Scope::new("parser::ParsedSource::parse_file");
         let path = path.as_ref().to_path_buf();
         let start = Instant::now();
         let (syntax_tree, _) =
@@ -35,6 +37,7 @@ impl ParsedSource {
     }
 
     pub fn parse_str(source: &str, path: impl AsRef<Path>) -> Result<Self> {
+        let _scope = profile::Scope::new("parser::ParsedSource::parse_str");
         let path = path.as_ref().to_path_buf();
         let start = Instant::now();
         let (syntax_tree, _) = parse_sv_str(
@@ -61,6 +64,7 @@ fn extract_candidates(
     syntax_tree: &sv_parser::SyntaxTree,
     source_len: usize,
 ) -> Vec<ReductionCandidate> {
+    let _scope = profile::Scope::new("parser::extract_candidates");
     let mut candidates = Vec::<ReductionCandidate>::new();
     let mut stack = Vec::<usize>::new();
 
@@ -107,12 +111,17 @@ fn is_removable_node(node: RefNode<'_>) -> bool {
         node,
         RefNode::NetDeclaration(_)
             | RefNode::DataDeclaration(_)
+            | RefNode::NetDeclAssignment(_)
+            | RefNode::VariableDeclAssignmentVariable(_)
+            | RefNode::VariableDeclAssignmentDynamicArray(_)
+            | RefNode::VariableDeclAssignmentClass(_)
             | RefNode::ContinuousAssign(_)
             | RefNode::InitialConstruct(_)
             | RefNode::AlwaysConstruct(_)
-            | RefNode::BlockingAssignment(_)
-            | RefNode::NonblockingAssignment(_)
+            | RefNode::Statement(_)
             | RefNode::CaseStatement(_)
+            | RefNode::CaseItemNondefault(_)
+            | RefNode::CaseItemDefault(_)
             | RefNode::ConditionalStatement(_)
             | RefNode::AnsiPortDeclarationNet(_)
             | RefNode::AnsiPortDeclarationVariable(_)
@@ -135,6 +144,12 @@ fn candidate_kind(node: RefNode<'_>) -> CandidateKind {
         | RefNode::PortDeclarationOutput(_)
         | RefNode::PortDeclarationRef(_)
         | RefNode::PortDeclarationInterface(_) => CandidateKind::Port,
+        RefNode::Statement(_) => CandidateKind::Statement,
+        RefNode::NetDeclAssignment(_)
+        | RefNode::VariableDeclAssignmentVariable(_)
+        | RefNode::VariableDeclAssignmentDynamicArray(_)
+        | RefNode::VariableDeclAssignmentClass(_) => CandidateKind::DeclarationItem,
+        RefNode::CaseItemNondefault(_) | RefNode::CaseItemDefault(_) => CandidateKind::CaseItem,
         _ => CandidateKind::Node,
     }
 }

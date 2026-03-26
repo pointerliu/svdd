@@ -10,6 +10,12 @@ pub enum AlgorithmKind {
     Hddmin,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum SyntaxCheckMode {
+    Off,
+    Always,
+}
+
 #[derive(Debug, Clone, Parser)]
 #[command(name = "svdd")]
 #[command(about = "Reduce SystemVerilog with AST-backed candidate removal")]
@@ -24,6 +30,9 @@ pub struct Cli {
 
     #[arg(long)]
     pub output_dir: PathBuf,
+
+    #[arg(long, value_enum, default_value_t = SyntaxCheckMode::Off)]
+    pub syntax_check: SyntaxCheckMode,
 
     #[arg(long, default_value_t = 1)]
     pub keep_exit_code: i32,

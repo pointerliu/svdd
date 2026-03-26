@@ -5,9 +5,11 @@ use std::time::Instant;
 use anyhow::Result;
 
 use crate::check::{CheckOutcome, Checker};
+use crate::cli::SyntaxCheckMode;
 use crate::metrics::{AttemptMetrics, PerformanceMetrics};
 use crate::model::{ReductionCandidate, ReductionSummary};
 use crate::parser::ParsedSource;
+use crate::profile;
 use crate::render::render_source;
 
 #[derive(Debug, Clone)]
@@ -34,6 +36,7 @@ pub struct ReductionSession {
     input_file_name: Option<String>,
     attempt_index: usize,
     validation_path: Option<String>,
+    syntax_check: SyntaxCheckMode,
 }
 
 impl ReductionSession {
@@ -55,6 +58,7 @@ impl ReductionSession {
             input_file_name: None,
             attempt_index: 0,
             validation_path: None,
+            syntax_check: SyntaxCheckMode::Off,
         }
     }
 
@@ -67,8 +71,13 @@ impl ReductionSession {
         self
     }
 
-    pub fn with_parse_validation(mut self, validation_path: impl Into<String>) -> Self {
+    pub fn with_parse_validation(
+        mut self,
+        validation_path: impl Into<String>,
+        syntax_check: SyntaxCheckMode,
+    ) -> Self {
         self.validation_path = Some(validation_path.into());
+        self.syntax_check = syntax_check;
         self
     }
 
@@ -114,6 +123,7 @@ impl ReductionSession {
         disabled: &mut BTreeSet<usize>,
         ids: &[usize],
     ) -> Result<bool> {
+        let _scope = profile::Scope::new("session::ReductionSession::attempt_disable");
         let start = Instant::now();
         let mut trial_disabled = disabled.clone();
         trial_disabled.extend(ids.iter().copied());
@@ -148,7 +158,8 @@ impl ReductionSession {
 
         let rendered_path = self.persist_attempt(&rendered)?;
 
-        if let Some(validation_path) = &self.validation_path {
+        if self.syntax_check == SyntaxCheckMode::Always {
+            let validation_path = self.validation_path.as_deref().unwrap_or("trial.sv");
             let parse_start = Instant::now();
             let parse_result = ParsedSource::parse_str(&rendered, validation_path);
             self.metrics.parse_elapsed += parse_start.elapsed();
@@ -199,6 +210,7 @@ impl ReductionSession {
     }
 
     fn persist_attempt(&mut self, rendered: &str) -> Result<Option<PathBuf>> {
+        let _scope = profile::Scope::new("session::ReductionSession::persist_attempt");
         let Some(output_dir) = &self.output_dir else {
             return Ok(None);
         };

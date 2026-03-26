@@ -42,12 +42,16 @@ pub fn render_source(
 
 fn removal_span(source: &str, candidate: &ReductionCandidate) -> (usize, usize) {
     match candidate.kind {
-        CandidateKind::Node => candidate.span(),
-        CandidateKind::Port => port_removal_span(source, candidate),
+        CandidateKind::Node | CandidateKind::Statement | CandidateKind::CaseItem => {
+            candidate.span()
+        }
+        CandidateKind::Port | CandidateKind::DeclarationItem => {
+            comma_separated_removal_span(source, candidate)
+        }
     }
 }
 
-fn port_removal_span(source: &str, candidate: &ReductionCandidate) -> (usize, usize) {
+fn comma_separated_removal_span(source: &str, candidate: &ReductionCandidate) -> (usize, usize) {
     let (mut start, mut end) = candidate.span();
     let bytes = source.as_bytes();
 

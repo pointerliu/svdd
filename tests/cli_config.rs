@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use svdd::cli::{AlgorithmKind, Cli};
+use svdd::cli::{AlgorithmKind, Cli, SyntaxCheckMode};
 
 #[test]
 fn parses_cli_with_required_output_dir() {
@@ -66,4 +66,20 @@ fn parses_cli_with_hddmin_algorithm() {
     ]);
 
     assert_eq!(cli.algorithm, AlgorithmKind::Hddmin);
+}
+
+#[test]
+fn parses_cli_with_syntax_check_off() {
+    let cli = Cli::parse_from([
+        "svdd",
+        "input.sv",
+        "--check-script",
+        "./check.sh",
+        "--output-dir",
+        "out",
+        "--syntax-check",
+        "off",
+    ]);
+
+    assert_eq!(cli.syntax_check, SyntaxCheckMode::Off);
 }

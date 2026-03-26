@@ -9,10 +9,12 @@ use svdd::algorithms::{
 use svdd::check::ScriptChecker;
 use svdd::cli::{AlgorithmKind, Cli};
 use svdd::parser::ParsedSource;
+use svdd::profile;
 use svdd::render::render_source;
 use svdd::session::{ReductionSession, SessionInput};
 
 fn main() -> Result<()> {
+    let _scope = profile::Scope::new("main");
     let overall_start = Instant::now();
     let cli = Cli::parse();
     let parsed = ParsedSource::parse_file(&cli.input)?;
@@ -26,7 +28,7 @@ fn main() -> Result<()> {
         ),
     )
     .with_output_dir(cli.output_dir.clone(), &parsed.path)
-    .with_parse_validation(parsed.path.display().to_string());
+    .with_parse_validation(parsed.path.display().to_string(), cli.syntax_check);
     session.metrics_mut().parse_elapsed = parsed.parse_elapsed;
 
     let mut summary = match cli.algorithm {
@@ -70,6 +72,7 @@ fn main() -> Result<()> {
     println!("check: {:?}", summary.metrics.check_elapsed);
     println!("algorithm cost: {:?}", summary.metrics.algorithm_elapsed);
     println!("output: {}", output_path.display());
+    profile::report();
 
     Ok(())
 }

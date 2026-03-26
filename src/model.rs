@@ -5,7 +5,10 @@ use crate::metrics::PerformanceMetrics;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CandidateKind {
     Node,
+    Statement,
     Port,
+    DeclarationItem,
+    CaseItem,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
