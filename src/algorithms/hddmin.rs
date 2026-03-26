@@ -6,6 +6,7 @@ use anyhow::Result;
 use crate::algorithms::ddmin::ddmin;
 use crate::algorithms::ReductionAlgorithm;
 use crate::model::ReductionSummary;
+use crate::profile;
 use crate::session::ReductionSession;
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -17,6 +18,7 @@ impl ReductionAlgorithm for HddminReducer {
     }
 
     fn run(&self, mut session: ReductionSession) -> Result<ReductionSummary> {
+        let _scope = profile::Scope::new("algorithms::HddminReducer::run");
         let total_start = Instant::now();
         let algo_start = Instant::now();
         let mut disabled = BTreeSet::new();

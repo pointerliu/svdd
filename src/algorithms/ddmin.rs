@@ -5,6 +5,7 @@ use anyhow::Result;
 
 use crate::algorithms::ReductionAlgorithm;
 use crate::model::ReductionSummary;
+use crate::profile;
 use crate::session::ReductionSession;
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -16,6 +17,7 @@ impl ReductionAlgorithm for DdminReducer {
     }
 
     fn run(&self, mut session: ReductionSession) -> Result<ReductionSummary> {
+        let _scope = profile::Scope::new("algorithms::DdminReducer::run");
         let total_start = Instant::now();
         let algo_start = Instant::now();
         let mut disabled = BTreeSet::new();
@@ -47,6 +49,7 @@ pub fn ddmin<F>(mut config: Vec<usize>, mut test: F) -> Result<BTreeSet<usize>>
 where
     F: FnMut(Vec<usize>) -> Result<bool>,
 {
+    let _scope = profile::Scope::new("algorithms::ddmin::ddmin");
     if config.len() <= 1 {
         return Ok(config.into_iter().collect());
     }

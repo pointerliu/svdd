@@ -5,6 +5,8 @@ use std::process::Command;
 use anyhow::{anyhow, Context, Result};
 use tempfile::NamedTempFile;
 
+use crate::profile;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CheckOutcome {
     Kept,
@@ -55,6 +57,7 @@ impl ScriptChecker {
     }
 
     pub fn run(&self, rendered: &str) -> Result<CheckOutcome> {
+        let _scope = profile::Scope::new("check::ScriptChecker::run");
         let mut temp =
             NamedTempFile::new().context("failed to create temp file for check script")?;
         std::io::Write::write_all(&mut temp, rendered.as_bytes())
@@ -64,6 +67,7 @@ impl ScriptChecker {
     }
 
     pub fn run_file(&self, rendered_path: &Path) -> Result<CheckOutcome> {
+        let _scope = profile::Scope::new("check::ScriptChecker::run_file");
         let status = Command::new(&self.script)
             .arg(rendered_path)
             .status()

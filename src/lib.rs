@@ -4,5 +4,6 @@ pub mod cli;
 pub mod metrics;
 pub mod model;
 pub mod parser;
+pub mod profile;
 pub mod render;
 pub mod session;
