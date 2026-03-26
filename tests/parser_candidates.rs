@@ -62,10 +62,7 @@ endmodule
         spans.iter().any(|span| span.contains("dummy_out")),
         "spans: {spans:#?}"
     );
-    assert!(
-        spans.iter().any(|span| span.contains("logic a;")),
-        "spans: {spans:#?}"
-    );
+    assert!(spans.iter().any(|span| *span == "a"), "spans: {spans:#?}");
     assert!(
         spans.iter().any(|span| span.contains("assign a = clk;")),
         "spans: {spans:#?}"
@@ -121,12 +118,13 @@ endmodule
         .map(|candidate| &parsed.source[candidate.start..candidate.end])
         .collect();
 
+    assert!(spans.iter().any(|span| *span == "b"), "spans: {spans:#?}");
     assert!(
-        spans.iter().any(|span| span.contains("b,")),
+        spans.iter().any(|span| span.contains("1'b0: b = c;")),
         "spans: {spans:#?}"
     );
     assert!(
-        spans.iter().any(|span| span.contains("1'b0: b = c;")),
+        !spans.iter().any(|span| span.contains("wire a, b, c;")),
         "spans: {spans:#?}"
     );
 }

@@ -138,6 +138,43 @@ endmodule
 }
 
 #[test]
+fn removes_whole_declaration_when_last_item_is_removed() {
+    let parsed = svdd::parser::ParsedSource::parse_str(
+        r#"module top;
+  wire lone_wire;
+  reg lone_reg;
+endmodule
+"#,
+        "top.sv",
+    )
+    .unwrap();
+
+    let remove_wire = parsed
+        .candidates
+        .iter()
+        .find(|candidate| parsed.source[candidate.start..candidate.end].contains("lone_wire"))
+        .map(|candidate| candidate.id)
+        .unwrap();
+    let remove_reg = parsed
+        .candidates
+        .iter()
+        .find(|candidate| parsed.source[candidate.start..candidate.end].contains("lone_reg"))
+        .map(|candidate| candidate.id)
+        .unwrap();
+
+    let mut disabled = BTreeSet::new();
+    disabled.insert(remove_wire);
+    disabled.insert(remove_reg);
+
+    let rendered = render_source(&parsed.source, &parsed.candidates, &disabled).unwrap();
+
+    assert!(!rendered.contains("wire lone_wire;"));
+    assert!(!rendered.contains("reg lone_reg;"));
+    assert!(!rendered.contains("wire ;"));
+    assert!(!rendered.contains("reg ;"));
+}
+
+#[test]
 fn removes_case_item_while_preserving_case_syntax() {
     let parsed = svdd::parser::ParsedSource::parse_str(
         r#"module top;

@@ -144,6 +144,16 @@ impl ReductionSession {
         let rendered = render_source(&self.input.source, &self.input.candidates, &trial_disabled)?;
         self.metrics.render_elapsed += render_start.elapsed();
 
+        if self.has_broken_identifier_dependencies(ids, &rendered) {
+            self.attempt_cache.insert(cache_key, false);
+            self.rendered_cache.insert(rendered, false);
+            self.metrics.record_attempt(AttemptMetrics {
+                accepted: false,
+                duration: start.elapsed(),
+            });
+            return Ok(false);
+        }
+
         if let Some(accepted) = self.rendered_cache.get(&rendered).copied() {
             self.attempt_cache.insert(cache_key, accepted);
             self.metrics.record_attempt(AttemptMetrics {
@@ -246,6 +256,39 @@ impl ReductionSession {
         }
         false
     }
+
+    fn has_broken_identifier_dependencies(&self, ids: &[usize], rendered: &str) -> bool {
+        ids.iter().any(|id| {
+            self.input.candidates[*id]
+                .provided_identifiers
+                .iter()
+                .any(|identifier| contains_identifier(rendered, identifier))
+        })
+    }
+}
+
+fn contains_identifier(source: &str, needle: &str) -> bool {
+    let bytes = source.as_bytes();
+    let needle = needle.as_bytes();
+    if needle.is_empty() || needle.len() > bytes.len() {
+        return false;
+    }
+    for start in 0..=bytes.len() - needle.len() {
+        if &bytes[start..start + needle.len()] != needle {
+            continue;
+        }
+        let left_ok = start == 0 || !is_identifier_byte(bytes[start - 1]);
+        let right = start + needle.len();
+        let right_ok = right == bytes.len() || !is_identifier_byte(bytes[right]);
+        if left_ok && right_ok {
+            return true;
+        }
+    }
+    false
+}
+
+fn is_identifier_byte(byte: u8) -> bool {
+    byte == b'_' || byte.is_ascii_alphanumeric()
 }
 
 fn build_candidate_order(candidates: &[ReductionCandidate]) -> Vec<usize> {

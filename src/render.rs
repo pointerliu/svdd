@@ -45,10 +45,46 @@ fn removal_span(source: &str, candidate: &ReductionCandidate) -> (usize, usize) 
         CandidateKind::Node | CandidateKind::Statement | CandidateKind::CaseItem => {
             candidate.span()
         }
-        CandidateKind::Port | CandidateKind::DeclarationItem => {
-            comma_separated_removal_span(source, candidate)
-        }
+        CandidateKind::Port => comma_separated_removal_span(source, candidate),
+        CandidateKind::DeclarationItem => declaration_item_removal_span(source, candidate),
     }
+}
+
+fn declaration_item_removal_span(source: &str, candidate: &ReductionCandidate) -> (usize, usize) {
+    let item_span = comma_separated_removal_span(source, candidate);
+    let bytes = source.as_bytes();
+
+    let mut left = candidate.start;
+    while left > 0 && matches!(bytes[left - 1], b' ' | b'\t') {
+        left -= 1;
+    }
+    let has_left_comma = left > 0 && bytes[left - 1] == b',';
+
+    let mut right = candidate.end;
+    while right < bytes.len() && matches!(bytes[right], b' ' | b'\t') {
+        right += 1;
+    }
+    let has_right_comma = right < bytes.len() && bytes[right] == b',';
+
+    if has_left_comma || has_right_comma {
+        return item_span;
+    }
+
+    let mut start = candidate.start;
+    while start > 0 && bytes[start - 1] != b'\n' && bytes[start - 1] != b';' {
+        start -= 1;
+    }
+    let mut end = candidate.end;
+    while end < bytes.len() && bytes[end] != b';' {
+        end += 1;
+    }
+    if end < bytes.len() {
+        end += 1;
+    }
+    while end < bytes.len() && matches!(bytes[end], b' ' | b'\t' | b'\r' | b'\n') {
+        end += 1;
+    }
+    (start, end)
 }
 
 fn comma_separated_removal_span(source: &str, candidate: &ReductionCandidate) -> (usize, usize) {

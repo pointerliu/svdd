@@ -20,6 +20,7 @@ pub struct ReductionCandidate {
     pub depth: usize,
     pub parent_id: Option<usize>,
     pub children: Vec<usize>,
+    pub provided_identifiers: Vec<String>,
 }
 
 impl ReductionCandidate {
@@ -32,6 +33,7 @@ impl ReductionCandidate {
             depth: 0,
             parent_id: None,
             children: Vec::new(),
+            provided_identifiers: Vec::new(),
         }
     }
 
@@ -50,6 +52,7 @@ impl ReductionCandidate {
             depth: 0,
             parent_id,
             children: Vec::new(),
+            provided_identifiers: Vec::new(),
         }
     }
 

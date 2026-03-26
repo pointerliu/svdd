@@ -26,7 +26,7 @@ impl ParsedSource {
                 .with_context(|| format!("failed to parse {}", path.display()))?;
         let source = std::fs::read_to_string(&path)
             .with_context(|| format!("failed to read {}", path.display()))?;
-        let candidates = extract_candidates(&syntax_tree, source.len());
+        let candidates = extract_candidates(&syntax_tree, &source, source.len());
 
         Ok(Self {
             path,
@@ -49,7 +49,7 @@ impl ParsedSource {
             false,
         )
         .with_context(|| format!("failed to parse {}", path.display()))?;
-        let candidates = extract_candidates(&syntax_tree, source.len());
+        let candidates = extract_candidates(&syntax_tree, source, source.len());
 
         Ok(Self {
             path,
@@ -62,6 +62,7 @@ impl ParsedSource {
 
 fn extract_candidates(
     syntax_tree: &sv_parser::SyntaxTree,
+    source: &str,
     source_len: usize,
 ) -> Vec<ReductionCandidate> {
     let _scope = profile::Scope::new("parser::extract_candidates");
@@ -103,15 +104,55 @@ fn extract_candidates(
         }
     }
 
-    remap_candidates(candidates, source_len)
+    let mut candidates = remap_candidates(candidates, source_len);
+    annotate_identifiers(&mut candidates, source);
+    candidates
+}
+
+fn annotate_identifiers(candidates: &mut [ReductionCandidate], source: &str) {
+    for candidate in candidates {
+        let span = &source[candidate.start..candidate.end];
+        candidate.provided_identifiers = match candidate.kind {
+            CandidateKind::Port => extract_last_identifier(span).into_iter().collect(),
+            CandidateKind::DeclarationItem => extract_first_identifier(span).into_iter().collect(),
+            _ => Vec::new(),
+        };
+    }
+}
+
+fn extract_first_identifier(span: &str) -> Option<String> {
+    identifier_tokens(span).into_iter().next()
+}
+
+fn extract_last_identifier(span: &str) -> Option<String> {
+    identifier_tokens(span).into_iter().last()
+}
+
+fn identifier_tokens(span: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let mut current = String::new();
+    for ch in span.chars() {
+        if ch == '_' || ch.is_ascii_alphanumeric() {
+            current.push(ch);
+        } else if !current.is_empty() {
+            if current.chars().next().unwrap().is_ascii_alphabetic() || current.starts_with('_') {
+                tokens.push(current.clone());
+            }
+            current.clear();
+        }
+    }
+    if !current.is_empty()
+        && (current.chars().next().unwrap().is_ascii_alphabetic() || current.starts_with('_'))
+    {
+        tokens.push(current);
+    }
+    tokens
 }
 
 fn is_removable_node(node: RefNode<'_>) -> bool {
     matches!(
         node,
-        RefNode::NetDeclaration(_)
-            | RefNode::DataDeclaration(_)
-            | RefNode::NetDeclAssignment(_)
+        RefNode::NetDeclAssignment(_)
             | RefNode::VariableDeclAssignmentVariable(_)
             | RefNode::VariableDeclAssignmentDynamicArray(_)
             | RefNode::VariableDeclAssignmentClass(_)
