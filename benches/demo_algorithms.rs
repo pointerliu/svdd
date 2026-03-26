@@ -11,7 +11,7 @@ use svdd::parser::ParsedSource;
 use svdd::session::{ReductionSession, SessionInput};
 
 fn bench_demo_algorithms(c: &mut Criterion) {
-    let parsed = ParsedSource::parse_file("examples/bugpoint_demo/compute_unit.sv").unwrap();
+    let parsed = ParsedSource::parse_file("duts/bugpoint_demo/compute_unit.sv").unwrap();
 
     c.bench_function("demo naive reducer", |b| {
         b.iter(|| {
