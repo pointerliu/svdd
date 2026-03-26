@@ -21,22 +21,42 @@ impl ReductionAlgorithm for DdminReducer {
         let total_start = Instant::now();
         let algo_start = Instant::now();
         let mut disabled = BTreeSet::new();
-        let candidates: Vec<usize> = session.candidate_ids().collect();
-        let kept = ddmin(candidates, |subset| {
+        let groups = session.candidate_groups(&disabled);
+        let group_ids: Vec<usize> = (0..groups.len()).collect();
+        let kept_groups = ddmin(group_ids, |subset| {
             let subset: BTreeSet<usize> = subset.into_iter().collect();
-            let to_disable = complement_of(
-                &subset,
-                &disabled,
-                &session.candidate_ids().collect::<Vec<_>>(),
-            );
+            let to_disable = complement_groups(&subset, &groups);
             let mut trial_disabled = disabled.clone();
             session.attempt_disable(&mut trial_disabled, &to_disable)
         })?;
 
-        let final_ids: Vec<usize> = session.candidate_ids().collect();
-        for id in final_ids {
-            if !kept.contains(&id) {
-                disabled.insert(id);
+        for (group_id, group) in groups.iter().enumerate() {
+            if !kept_groups.contains(&group_id) {
+                disabled.extend(group.iter().copied());
+            }
+        }
+
+        for group_id in kept_groups {
+            let group = groups[group_id].clone();
+            if group.len() <= 1 {
+                continue;
+            }
+
+            let kept = ddmin(group.clone(), |subset| {
+                let subset: BTreeSet<usize> = subset.into_iter().collect();
+                let to_disable: Vec<usize> = group
+                    .iter()
+                    .copied()
+                    .filter(|id| !subset.contains(id))
+                    .collect();
+                let mut trial_disabled = disabled.clone();
+                session.attempt_disable(&mut trial_disabled, &to_disable)
+            })?;
+
+            for id in group {
+                if !kept.contains(&id) {
+                    disabled.insert(id);
+                }
             }
         }
 
@@ -113,14 +133,11 @@ fn difference(config: &[usize], subset: &[usize]) -> Vec<usize> {
         .collect()
 }
 
-fn complement_of(
-    subset: &BTreeSet<usize>,
-    already_disabled: &BTreeSet<usize>,
-    universe: &[usize],
-) -> Vec<usize> {
-    universe
+fn complement_groups(subset: &BTreeSet<usize>, groups: &[Vec<usize>]) -> Vec<usize> {
+    groups
         .iter()
-        .copied()
-        .filter(|id| !subset.contains(id) && !already_disabled.contains(id))
+        .enumerate()
+        .filter(|(group_id, _)| !subset.contains(group_id))
+        .flat_map(|(_, group)| group.iter().copied())
         .collect()
 }

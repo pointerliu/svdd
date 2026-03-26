@@ -31,7 +31,7 @@ pub struct Cli {
     #[arg(long)]
     pub output_dir: PathBuf,
 
-    #[arg(long, value_enum, default_value_t = SyntaxCheckMode::Off)]
+    #[arg(long, value_enum, default_value_t = SyntaxCheckMode::Always)]
     pub syntax_check: SyntaxCheckMode,
 
     #[arg(long, default_value_t = 1)]

@@ -35,3 +35,27 @@ fn ddmin_reduces_to_minimal_failure_subset() {
     assert!(!summary.disabled_candidates.contains(&2));
     assert!(!summary.disabled_candidates.contains(&3));
 }
+
+#[test]
+fn ddmin_uses_structural_groups_before_single_candidates() {
+    let candidates = vec![
+        ReductionCandidate::new(0, CandidateKind::Node, 0, 1),
+        ReductionCandidate::new(1, CandidateKind::Statement, 1, 2),
+        ReductionCandidate::new(2, CandidateKind::Node, 2, 3),
+    ];
+    let session = ReductionSession::new(
+        SessionInput::new("abc".into(), candidates),
+        |_rendered: &str, disabled: &BTreeSet<usize>| {
+            if disabled.contains(&0) && disabled.contains(&2) && !disabled.contains(&1) {
+                CheckOutcome::Kept
+            } else {
+                CheckOutcome::Lost
+            }
+        },
+    );
+
+    let summary = DdminReducer::default().run(session).unwrap();
+
+    assert_eq!(summary.disabled_candidates, BTreeSet::from([0, 2]));
+    assert_eq!(summary.metrics.attempt_count, 2);
+}

@@ -89,6 +89,16 @@ impl ReductionSession {
         self.candidate_order.iter().copied()
     }
 
+    pub fn candidate_groups(&self, disabled: &BTreeSet<usize>) -> Vec<Vec<usize>> {
+        build_candidate_groups(
+            self.candidate_order
+                .iter()
+                .copied()
+                .filter(|id| self.can_try_candidate(*id, disabled)),
+            &self.input.candidates,
+        )
+    }
+
     pub fn grouped_siblings(&self) -> Vec<Vec<usize>> {
         self.sibling_groups.clone()
     }
@@ -100,22 +110,37 @@ impl ReductionSession {
             .iter()
             .map(|candidate| candidate.depth)
             .collect();
-        depths.sort_unstable();
+        depths.sort_unstable_by(|left, right| right.cmp(left));
         depths.dedup();
         depths
     }
 
     pub fn level_candidate_ids(&self, depth: usize, disabled: &BTreeSet<usize>) -> Vec<usize> {
-        self.candidate_order
-            .iter()
-            .copied()
-            .filter(|id| {
-                let candidate = &self.input.candidates[*id];
-                candidate.depth == depth
-                    && !disabled.contains(id)
-                    && !self.has_disabled_ancestor(*id, disabled)
-            })
+        self.level_candidate_groups(depth, disabled)
+            .into_iter()
+            .flatten()
             .collect()
+    }
+
+    pub fn level_candidate_groups(
+        &self,
+        depth: usize,
+        disabled: &BTreeSet<usize>,
+    ) -> Vec<Vec<usize>> {
+        build_candidate_groups(
+            self.input.candidates.iter().filter_map(|candidate| {
+                if candidate.depth == depth && self.can_try_candidate(candidate.id, disabled) {
+                    Some(candidate.id)
+                } else {
+                    None
+                }
+            }),
+            &self.input.candidates,
+        )
+    }
+
+    pub fn can_try_candidate(&self, id: usize, disabled: &BTreeSet<usize>) -> bool {
+        !disabled.contains(&id) && !self.has_disabled_ancestor(id, disabled)
     }
 
     pub fn attempt_disable(
@@ -295,30 +320,43 @@ fn build_candidate_order(candidates: &[ReductionCandidate]) -> Vec<usize> {
     let mut ids: Vec<usize> = candidates.iter().map(|candidate| candidate.id).collect();
     ids.sort_by_key(|id| {
         let candidate = &candidates[*id];
-        (usize::MAX - candidate.depth, candidate.start)
+        (
+            usize::MAX - candidate.line_count,
+            usize::MAX - candidate.depth,
+            candidate.start,
+        )
     });
     ids
 }
 
 fn build_sibling_groups(candidates: &[ReductionCandidate]) -> Vec<Vec<usize>> {
-    let mut groups = BTreeMap::<Option<usize>, Vec<usize>>::new();
-    for candidate in candidates {
+    let mut groups =
+        build_candidate_groups(candidates.iter().map(|candidate| candidate.id), candidates);
+    groups.retain(|group| group.len() > 1);
+    groups
+}
+
+fn build_candidate_groups<I>(ids: I, candidates: &[ReductionCandidate]) -> Vec<Vec<usize>>
+where
+    I: IntoIterator<Item = usize>,
+{
+    let mut groups = BTreeMap::<(Option<usize>, crate::model::CandidateKind), Vec<usize>>::new();
+    for id in ids {
+        let candidate = &candidates[id];
         groups
-            .entry(candidate.parent_id)
+            .entry((candidate.parent_id, candidate.kind))
             .or_default()
             .push(candidate.id);
     }
-    let mut groups: Vec<Vec<usize>> = groups
-        .into_values()
-        .filter(|group| group.len() > 1)
-        .collect();
+    let mut groups: Vec<Vec<usize>> = groups.into_values().collect();
     groups.sort_by_key(|group| {
         let depth = group
             .iter()
             .map(|id| candidates[*id].depth)
             .max()
             .unwrap_or(0);
-        usize::MAX - depth
+        let lines: usize = group.iter().map(|id| candidates[*id].line_count).sum();
+        (usize::MAX - lines, usize::MAX - depth)
     });
     groups
 }

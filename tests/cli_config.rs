@@ -17,6 +17,7 @@ fn parses_cli_with_required_output_dir() {
     assert_eq!(cli.check_script.as_os_str(), "./check.sh");
     assert_eq!(cli.algorithm, AlgorithmKind::Naive);
     assert_eq!(cli.output_dir.as_os_str(), "./out");
+    assert_eq!(cli.syntax_check, SyntaxCheckMode::Always);
 }
 
 #[test]

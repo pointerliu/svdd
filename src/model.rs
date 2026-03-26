@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use crate::metrics::PerformanceMetrics;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum CandidateKind {
     Node,
     Statement,
@@ -17,6 +17,7 @@ pub struct ReductionCandidate {
     pub kind: CandidateKind,
     pub start: usize,
     pub end: usize,
+    pub line_count: usize,
     pub depth: usize,
     pub parent_id: Option<usize>,
     pub children: Vec<usize>,
@@ -30,6 +31,7 @@ impl ReductionCandidate {
             kind,
             start,
             end,
+            line_count: 1,
             depth: 0,
             parent_id: None,
             children: Vec::new(),
@@ -49,6 +51,7 @@ impl ReductionCandidate {
             kind,
             start,
             end,
+            line_count: 1,
             depth: 0,
             parent_id,
             children: Vec::new(),

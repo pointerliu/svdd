@@ -105,8 +105,16 @@ fn extract_candidates(
     }
 
     let mut candidates = remap_candidates(candidates, source_len);
+    annotate_line_counts(&mut candidates, source);
     annotate_identifiers(&mut candidates, source);
     candidates
+}
+
+fn annotate_line_counts(candidates: &mut [ReductionCandidate], source: &str) {
+    for candidate in candidates {
+        let span = &source[candidate.start..candidate.end];
+        candidate.line_count = span.bytes().filter(|byte| *byte == b'\n').count() + 1;
+    }
 }
 
 fn annotate_identifiers(candidates: &mut [ReductionCandidate], source: &str) {

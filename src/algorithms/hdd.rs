@@ -29,7 +29,7 @@ impl ReductionAlgorithm for HddReducer {
 
             let remaining_ids: Vec<usize> = session.candidate_ids().collect();
             for id in remaining_ids {
-                if disabled.contains(&id) {
+                if !session.can_try_candidate(id, &disabled) {
                     continue;
                 }
                 changed |= session.attempt_disable(&mut disabled, &[id])?;
@@ -53,7 +53,7 @@ fn reduce_group(
     let mut active: Vec<usize> = group
         .iter()
         .copied()
-        .filter(|id| !disabled.contains(id))
+        .filter(|id| session.can_try_candidate(*id, disabled))
         .collect();
     if active.is_empty() {
         return Ok(false);
@@ -90,7 +90,7 @@ fn reduce_group(
     }
 
     for id in active {
-        if disabled.contains(&id) {
+        if !session.can_try_candidate(id, disabled) {
             continue;
         }
         changed |= session.attempt_disable(disabled, &[id])?;

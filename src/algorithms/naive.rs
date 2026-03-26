@@ -23,7 +23,7 @@ impl ReductionAlgorithm for NaiveReducer {
         loop {
             let mut changed = false;
             for id in &candidate_ids {
-                if disabled.contains(id) {
+                if !session.can_try_candidate(*id, &disabled) {
                     continue;
                 }
                 changed |= session.attempt_disable(&mut disabled, &[*id])?;
